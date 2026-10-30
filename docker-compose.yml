@@ -1,0 +1,65 @@
+services:
+  product-mysql:
+    image: mysql:8.4
+    container_name: product-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root-pw
+      MYSQL_DATABASE: productdb
+      MYSQL_USER: product
+      MYSQL_PASSWORD: product-pw
+    volumes:
+      - product-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot-pw"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  order-mysql:
+    image: mysql:8.4
+    container_name: order-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root-pw
+      MYSQL_DATABASE: orderdb
+      MYSQL_USER: order
+      MYSQL_PASSWORD: order-pw
+    volumes:
+      - order-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot-pw"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  product-service:
+    build: ./product-service
+    container_name: product-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://product-mysql:3306/productdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: product
+      SPRING_DATASOURCE_PASSWORD: product-pw
+    depends_on:
+      product-mysql:
+        condition: service_healthy
+
+  order-service:
+    build: ./order-service
+    container_name: order-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://order-mysql:3306/orderdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: order
+      SPRING_DATASOURCE_PASSWORD: order-pw
+      PRODUCT_SERVICE_URL: http://product-service:8081
+    depends_on:
+      order-mysql:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+
+volumes:
+  product-mysql-data:
+  order-mysql-data:
