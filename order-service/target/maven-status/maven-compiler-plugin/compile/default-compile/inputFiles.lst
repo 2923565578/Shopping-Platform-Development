@@ -1,6 +1,7 @@
 F:\Final Project\ShopStream\order-service\src\main\java\hu\unimiskolc\shopstream\order\ProductDto.java
 F:\Final Project\ShopStream\order-service\src\main\java\hu\unimiskolc\shopstream\order\OrderController.java
 F:\Final Project\ShopStream\order-service\src\main\java\hu\unimiskolc\shopstream\order\Order.java
+F:\Final Project\ShopStream\order-service\src\main\java\hu\unimiskolc\shopstream\order\KafkaTopicConfig.java
 F:\Final Project\ShopStream\order-service\src\main\java\hu\unimiskolc\shopstream\order\OrderRepository.java
 F:\Final Project\ShopStream\order-service\src\main\java\hu\unimiskolc\shopstream\order\OrderServiceApplication.java
 F:\Final Project\ShopStream\order-service\src\main\java\hu\unimiskolc\shopstream\order\RestClientConfig.java

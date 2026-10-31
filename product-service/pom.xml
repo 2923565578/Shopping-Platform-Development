@@ -34,13 +34,18 @@
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
         
-        <!-- 刚刚新增的测试依赖 -->
+        <!-- 新增的 Kafka 依赖 -->
+        <dependency>
+            <groupId>org.springframework.kafka</groupId>
+            <artifactId>spring-kafka</artifactId>
+        </dependency>
+
+        <!-- 测试依赖 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
-        
     </dependencies>
     <build>
         <plugins>
