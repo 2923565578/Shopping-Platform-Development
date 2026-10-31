@@ -31,7 +31,6 @@ services:
       timeout: 5s
       retries: 20
 
-  # 新增的 Kafka 服务
   kafka:
     image: apache/kafka:4.0.0
     container_name: kafka
@@ -51,6 +50,17 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
 
+  # 新增 Elasticsearch
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.1.0
+    container_name: elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: -Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+
   product-service:
     build: ./product-service
     container_name: product-service
@@ -60,7 +70,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://product-mysql:3306/productdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: product
       SPRING_DATASOURCE_PASSWORD: product-pw
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092   # 新增
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       product-mysql:
         condition: service_healthy
@@ -77,11 +87,26 @@ services:
       SPRING_DATASOURCE_USERNAME: order
       SPRING_DATASOURCE_PASSWORD: order-pw
       PRODUCT_SERVICE_URL: http://product-service:8081
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092   # 新增
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
     depends_on:
       order-mysql:
         condition: service_healthy
       product-service:
+        condition: service_started
+      kafka:
+        condition: service_started
+
+  # 新增搜索服务
+  search-service:
+    build: ./search-service
+    container_name: search-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      elasticsearch:
         condition: service_started
       kafka:
         condition: service_started
