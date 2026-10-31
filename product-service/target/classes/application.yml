@@ -2,15 +2,33 @@ server:
   port: 8081
 
 spring:
+  config:
+    # 🌟 新增：启动时去 config-server 拉取配置
+    import: optional:configserver:http://config-server:8888
+  application:
+    name: product-service  # 必须要有名字，Eureka 才能识别
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/productdb}
+    username: ${SPRING_DATASOURCE_USERNAME:product}
+    password: ${SPRING_DATASOURCE_PASSWORD:product-pw}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+  cache:
+    type: redis
   data:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}
       port: ${SPRING_REDIS_PORT:6379}
       password: ${SPRING_REDIS_PASSWORD:mypass}
-  cache:
-    type: redis
+  kafka:
+    bootstrap-servers: ${SPRING_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
 
-order:
-  service:
-    url: ${ORDER_SERVICE_URL:http://localhost:8081}
-
+# Eureka 注册中心地址
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/

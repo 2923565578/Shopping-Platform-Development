@@ -2,13 +2,19 @@ server:
   port: 8083
 
 spring:
+  application:
+    name: cart-service
   data:
     redis:
       host: ${SPRING_REDIS_HOST:localhost}
       port: ${SPRING_REDIS_PORT:6379}
       password: ${SPRING_REDIS_PASSWORD:mypass}
- 
 
 order:
   service:
-    url: ${ORDER_SERVICE_URL:http://localhost:8082}
+    url: ${ORDER_SERVICE_URL:http://localhost:8082} # 修正是 8082
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://discovery-server:8761/eureka/

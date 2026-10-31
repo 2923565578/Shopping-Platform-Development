@@ -1,4 +1,33 @@
 services:
+  discovery-server:
+    build: ./discovery-server
+    container_name: discovery-server
+    ports:
+      - "8761:8761"
+
+  # 🌟 配置中心服务 (已经在这里了)
+  config-server:
+    build: ./config-server
+    container_name: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    volumes:
+      - ./config-repo:/config-repo
+    depends_on:
+      - discovery-server
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      - discovery-server
+
   product-mysql:
     image: mysql:8.4
     container_name: product-mysql
@@ -60,7 +89,6 @@ services:
     ports:
       - "9200:9200"
 
-  # 新增 Redis
   redis:
     image: redis:8
     container_name: redis
@@ -70,9 +98,7 @@ services:
 
   product-service:
     build: ./product-service
-    container_name: product-service
-    ports:
-      - "8081:8081"
+    # 删除了 container_name 和 ports 才能允许扩容
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://product-mysql:3306/productdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: product
@@ -81,6 +107,7 @@ services:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_REDIS_PASSWORD: mypass
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
     depends_on:
       product-mysql:
         condition: service_healthy
@@ -88,18 +115,21 @@ services:
         condition: service_started
       redis:
         condition: service_started
+      discovery-server:
+        condition: service_started
+      # 💡 确保配置中心先启动
+      config-server:
+        condition: service_started
 
   order-service:
     build: ./order-service
-    container_name: order-service
-    ports:
-      - "8082:8082"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://order-mysql:3306/orderdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       SPRING_DATASOURCE_USERNAME: order
       SPRING_DATASOURCE_PASSWORD: order-pw
       PRODUCT_SERVICE_URL: http://product-service:8081
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
     depends_on:
       order-mysql:
         condition: service_healthy
@@ -107,36 +137,37 @@ services:
         condition: service_started
       kafka:
         condition: service_started
+      discovery-server:
+        condition: service_started
 
   search-service:
     build: ./search-service
-    container_name: search-service
-    ports:
-      - "8084:8084"
     environment:
       SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
     depends_on:
       elasticsearch:
         condition: service_started
       kafka:
         condition: service_started
+      discovery-server:
+        condition: service_started
 
-  # 新增购物车服务
   cart-service:
     build: ./cart-service
-    container_name: cart-service
-    ports:
-      - "8083:8083"
     environment:
       SPRING_REDIS_HOST: redis
       SPRING_REDIS_PORT: 6379
       SPRING_REDIS_PASSWORD: mypass
       ORDER_SERVICE_URL: http://order-service:8082
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
     depends_on:
       redis:
         condition: service_started
       order-service:
+        condition: service_started
+      discovery-server:
         condition: service_started
 
 volumes:
