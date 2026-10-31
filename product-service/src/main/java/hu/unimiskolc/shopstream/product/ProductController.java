@@ -1,6 +1,8 @@
 package hu.unimiskolc.shopstream.product;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -24,7 +26,9 @@ public class ProductController {
     public List<Product> all() { return repo.findAll(); }
 
     @GetMapping("/{id}")
+    @Cacheable(value = "products", key = "#id")
     public ResponseEntity<Product> one(@PathVariable Long id) {
+        System.out.println("从数据库查询商品: " + id);
         return repo.findById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
     }
 
@@ -37,6 +41,7 @@ public class ProductController {
     }
 
     @PutMapping("/{id}")
+    @CacheEvict(value = "products", key = "#id")
     public ResponseEntity<Product> update(@PathVariable Long id, @RequestBody Product body) {
         return repo.findById(id).map(p -> {
             p.setName(body.getName());
@@ -51,6 +56,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @CacheEvict(value = "products", key = "#id")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (!repo.existsById(id)) return ResponseEntity.notFound().build();
         repo.deleteById(id);
@@ -62,7 +68,6 @@ public class ProductController {
         try {
             String json = objectMapper.writeValueAsString(product);
             kafkaTemplate.send("product-events", product.getId().toString(), eventType + ":" + json);
-            System.out.println("成功发送商品事件: " + eventType);
         } catch (Exception e) {
             e.printStackTrace();
         }
