@@ -1,0 +1,30 @@
+# Java / Maven build output
+target/
+*.class
+*.jar
+*.war
+
+# Node / frontend build output
+node_modules/
+dist/
+.vite/
+
+# Python cache (report build scripts)
+__pycache__/
+*.pyc
+
+# Report build scratch files (previews and temporary docx working copies)
+docs/report-build/preview/
+docs/report-build/docx_tmp/
+docs/report-build/enchk*.py
+
+# Logs and local environment
+*.log
+.env
+.env.local
+
+# IDE / OS
+.idea/
+*.iml
+.DS_Store
+Thumbs.db

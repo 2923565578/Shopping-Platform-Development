@@ -1,0 +1,240 @@
+{
+  "info": {
+    "name": "ShopStream — Defense Demo",
+    "description": "Collection for the ShopStream oral defense. Start the stack with `docker compose up -d` first. All requests go through the API gateway on :8080.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "frontend", "value": "http://localhost:3000" },
+    { "key": "productId", "value": "1" },
+    { "key": "orderId", "value": "1" }
+  ],
+  "item": [
+    {
+      "name": "0. Preflight",
+      "item": [
+        {
+          "name": "Product list via gateway",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/products" },
+            "description": "Gateway -> Eureka -> product-service -> MySQL. Expect 200 and a JSON array."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "pm.test('returns an array', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Frontend (open in browser)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{frontend}}/" },
+            "description": "nginx serves the React bundle. Open it in a browser tab for the UI demo."
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. product-service",
+      "item": [
+        {
+          "name": "List products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/products" }
+          }
+        },
+        {
+          "name": "Get product (Redis cache)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}" },
+            "description": "Call twice, then check `docker compose logs product-service` — '从数据库查询商品' appears only on the first call."
+          }
+        },
+        {
+          "name": "Create product (Kafka event)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo Keyboard\",\n  \"description\": \"Mechanical keyboard created during the defense\",\n  \"category\": \"electronics\",\n  \"price\": 89.99,\n  \"stock\": 7\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/products" },
+            "description": "Writes MySQL, evicts nothing, publishes ProductCreated to Kafka. Check `product-events` afterwards."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const product = pm.response.json();",
+                  "pm.collectionVariables.set('productId', product.id);",
+                  "console.log('Created product id =', product.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update product (cache evict + event)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Demo Keyboard v2\",\n  \"description\": \"Updated during the defense\",\n  \"category\": \"electronics\",\n  \"price\": 79.99,\n  \"stock\": 5\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}" },
+            "description": "Evicts the Redis cache entry and publishes ProductUpdated."
+          }
+        },
+        {
+          "name": "Delete product (optional)",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/products/{{productId}}" },
+            "description": "Only run this if you created a throw-away product. Publishes ProductDeleted so search-service removes it from Elasticsearch."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. search-service",
+      "item": [
+        {
+          "name": "Full-text search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/search?text=keyboard&size=20" },
+            "description": "BoolQuery multiMatch on name + description. Data comes from Elasticsearch, filled by Kafka."
+          }
+        },
+        {
+          "name": "Category + price filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/search?category=electronics&minPrice=50&maxPrice=2000&size=20" },
+            "description": "Term filter on category + range filter on price. Filters do not affect relevance scoring."
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. order-service",
+      "item": [
+        {
+          "name": "Create order (Feign + Kafka)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    { \"productId\": 1, \"quantity\": 2 }\n  ]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": { "raw": "{{baseUrl}}/api/orders" },
+            "description": "order-service calls product-service via Feign for the price, saves order + items, then publishes OrderPlaced to order-events."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('201 Created', () => pm.response.to.have.status(201));",
+                  "const order = pm.response.json();",
+                  "pm.collectionVariables.set('orderId', order.id);",
+                  "pm.test('status is PENDING', () => pm.expect(order.status).to.eql('PENDING'));",
+                  "pm.test('total price is positive', () => pm.expect(Number(order.totalPrice)).to.be.above(0));",
+                  "console.log('Created order id =', order.id, 'total =', order.totalPrice);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Read order",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}" },
+            "description": "Returns the order with its items (EAGER collection) and the unitPrice snapshot."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('200 OK', () => pm.response.to.have.status(200));",
+                  "const order = pm.response.json();",
+                  "pm.test('has items', () => pm.expect(order.items.length).to.be.above(0));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. cart-service (expected 404)",
+      "item": [
+        {
+          "name": "GET cart — not implemented",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/carts/1" },
+            "description": "cart-service only has the Spring Boot application class — no controller. Gateway routes the call, the service returns 404. Use this to explain the missing piece honestly."
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. api-gateway",
+      "item": [
+        {
+          "name": "Request with X-Request-Id",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "X-Request-Id", "value": "demo-123" }],
+            "url": { "raw": "{{baseUrl}}/api/products" },
+            "description": "After sending, run `docker compose logs api-gateway --tail 20` and look for: Gateway Request ID: demo-123 | Path: /api/products"
+          }
+        },
+        {
+          "name": "Request without X-Request-Id (auto UUID)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{baseUrl}}/api/products" },
+            "description": "The GlobalFilter generates a UUID and logs it."
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -27,9 +27,11 @@ public class ProductController {
 
     @GetMapping("/{id}")
     @Cacheable(value = "products", key = "#id")
-    public ResponseEntity<Product> one(@PathVariable Long id) {
+    public Product one(@PathVariable Long id) {
         System.out.println("从数据库查询商品: " + id);
-        return repo.findById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build());
+        return repo.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Product not found: " + id));
     }
 
     @PostMapping

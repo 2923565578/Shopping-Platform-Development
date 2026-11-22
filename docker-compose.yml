@@ -28,6 +28,15 @@ services:
     depends_on:
       - discovery-server
 
+  # 🌟 前端：React + Vite 构建，nginx 托管并反向代理 /api 到网关
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api-gateway
+
   product-mysql:
     image: mysql:8.4
     container_name: product-mysql
@@ -88,6 +97,12 @@ services:
       ES_JAVA_OPTS: -Xms512m -Xmx512m
     ports:
       - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
 
   redis:
     image: redis:8
@@ -148,7 +163,7 @@ services:
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
     depends_on:
       elasticsearch:
-        condition: service_started
+        condition: service_healthy
       kafka:
         condition: service_started
       discovery-server:
@@ -166,6 +181,18 @@ services:
       redis:
         condition: service_started
       order-service:
+        condition: service_started
+      discovery-server:
+        condition: service_started
+
+  # 🌟 Task 7：只订阅 Kafka 事件、打日志的服务，没有数据库，也不对外暴露端口
+  notification-service:
+    build: ./notification-service
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://discovery-server:8761/eureka/
+    depends_on:
+      kafka:
         condition: service_started
       discovery-server:
         condition: service_started
